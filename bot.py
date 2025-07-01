@@ -1,113 +1,92 @@
-import os
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
-import math
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext, ConversationHandler
 
-TOKEN = os.getenv("TOKEN")
+TOKEN ="     7506871066:AAEEKbt-HxEG_TpbwzkmKsylB8DKk1upVHk   "# 
 
-# مراحل گفتگو
-SHAPE, DATA = range(2)
+CHOOSING_SHAPE, GETTING_INPUT = range(2)
 
-# ذخیره شکل انتخاب شده
-user_shape = {}
-
-# شروع گفتگو
-def start(update: Update, context: CallbackContext):
-    reply_keyboard = [['مربع', 'مستطیل'], ['دایره', 'مثلث'], ['متوازی‌الاضلاع']]
+def start(update: Update, context: CallbackContext) -> int:
+    reply_keyboard = [["دایره", "مربع"], ["مثلث", "مستطیل"]]
     update.message.reply_text(
-        "سلام! 👋\n"
-        "برای محاسبه محیط و مساحت، یکی از اشکال زیر رو انتخاب کن:",
-        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True, resize_keyboard=True)
+        "سلام! 👋\nشکلی را برای محاسبه انتخاب کن:",
+        reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True),
     )
-    return SHAPE
+    return CHOOSING_SHAPE
 
-# دریافت نام شکل
-def shape_received(update: Update, context: CallbackContext):
+def choose_shape(update: Update, context: CallbackContext) -> int:
     shape = update.message.text
-    user_id = update.effective_user.id
-    user_shape[user_id] = shape
+    context.user_data["shape"] = shape
 
-    if shape == "مربع":
-        update.message.reply_text("🔹 لطفاً طول ضلع مربع را وارد کن:")
-    elif shape == "مستطیل":
-        update.message.reply_text("🔹 لطفاً طول و عرض مستطیل را با فاصله وارد کن (مثلاً: 5 3):")
-    elif shape == "دایره":
-        update.message.reply_text("🔹 لطفاً شعاع دایره را وارد کن:")
+    if shape == "دایره":
+        update.message.reply_text("لطفاً شعاع دایره را وارد کن:")
+    elif shape == "مربع":
+        update.message.reply_text("طول ضلع مربع را وارد کن:")
     elif shape == "مثلث":
-        update.message.reply_text("🔹 لطفاً سه ضلع مثلث را با فاصله وارد کن (مثلاً: 3 4 5):")
-    elif shape == "متوازی‌الاضلاع":
-        update.message.reply_text("🔹 لطفاً دو ضلع و زاویه بین‌شان را وارد کن (مثلاً: 5 4 30 یا 30r برای رادیان):")
+        update.message.reply_text("طول سه ضلع مثلث را با فاصله وارد کن (مثلاً: 3 4 5):")
+    elif shape == "مستطیل":
+        update.message.reply_text("طول و عرض مستطیل را با فاصله وارد کن (مثلاً: 4 5):")
     else:
         update.message.reply_text("شکل نامعتبر است. لطفاً دوباره انتخاب کن.")
-        return SHAPE
+        return CHOOSING_SHAPE
 
-    return DATA
+    return GETTING_INPUT
 
-# دریافت داده و محاسبه
-def data_received(update: Update, context: CallbackContext):
-    user_id = update.effective_user.id
-    shape = user_shape.get(user_id)
-    text = update.message.text.strip()
+def calculate(update: Update, context: CallbackContext) -> int:
+    shape = context.user_data["shape"]
+    text = update.message.text
+
     try:
-        args = text.split()
-        if shape == "مربع" and len(args) == 1:
-            a = float(args[0])
-            p = 4 * a
-            s = a * a
-        elif shape == "مستطیل" and len(args) == 2:
-            a, b = map(float, args)
-            p = 2 * (a + b)
-            s = a * b
-        elif shape == "دایره" and len(args) == 1:
-            r = float(args[0])
-            p = 2 * math.pi * r
-            s = math.pi * r * r
-        elif shape == "مثلث" and len(args) == 3:
-            a, b, c = map(float, args)
-            p = a + b + c
-            t = p / 2
-            s = math.sqrt(t * (t - a) * (t - b) * (t - c))
-        elif shape == "متوازی‌الاضلاع" and len(args) == 3:
-            a, b = float(args[0]), float(args[1])
-            angle = args[2]
-            if angle.endswith('r'):
-                ang = float(angle[:-1])
-            else:
-                ang = math.radians(float(angle))
-            p = 2 * (a + b)
-            s = a * b * math.sin(ang)
+        if shape == "دایره":
+            r = float(text)
+            area = 3.14 * r * r
+            perimeter = 2 * 3.14 * r
+        elif shape == "مربع":
+            a = float(text)
+            area = a * a
+            perimeter = 4 * a
+        elif shape == "مثلث":
+            a, b, c = map(float, text.split())
+            s = (a + b + c) / 2
+            area = (s * (s - a) * (s - b) * (s - c)) ** 0.5
+            perimeter = a + b + c
+        elif shape == "مستطیل":
+            a, b = map(float, text.split())
+            area = a * b
+            perimeter = 2 * (a + b)
         else:
-            update.message.reply_text("❌ تعداد داده‌ها اشتباه است.")
+            update.message.reply_text("خطا در انتخاب شکل.")
             return ConversationHandler.END
 
-        update.message.reply_text(f"✅ محیط: {p:.2f}\n✅ مساحت: {s:.2f}", reply_markup=ReplyKeyboardRemove())
-    except Exception as e:
-        update.message.reply_text(f"❌ خطا در محاسبه: {e}", reply_markup=ReplyKeyboardRemove())
+        update.message.reply_text(
+            f"📐 نتیجه:\nمساحت = {area:.2f}\nمحیط = {perimeter:.2f}",
+            reply_markup=ReplyKeyboardRemove(),
+        )
+    except:
+        update.message.reply_text("ورودی نادرست بود. لطفاً دوباره تلاش کن.")
 
     return ConversationHandler.END
 
-# لغو گفتگو
-def cancel(update: Update, context: CallbackContext):
-    update.message.reply_text("گفتگو لغو شد.", reply_markup=ReplyKeyboardRemove())
+def cancel(update: Update, context: CallbackContext) -> int:
+    update.message.reply_text("لغو شد ✅", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
 
 def main():
     updater = Updater(TOKEN)
-    dp = updater.dispatcher
+    dispatcher = updater.dispatcher
 
     conv_handler = ConversationHandler(
-        entry_points=[CommandHandler('start', start)],
+        entry_points=[CommandHandler("start", start)],
         states={
-            SHAPE: [MessageHandler(Filters.text & ~Filters.command, shape_received)],
-            DATA: [MessageHandler(Filters.text & ~Filters.command, data_received)],
+            CHOOSING_SHAPE: [MessageHandler(Filters.text & ~Filters.command, choose_shape)],
+            GETTING_INPUT: [MessageHandler(Filters.text & ~Filters.command, calculate)],
         },
-        fallbacks=[CommandHandler('cancel', cancel)]
+        fallbacks=[CommandHandler("cancel", cancel)],
     )
 
-    dp.add_handler(conv_handler)
+    dispatcher.add_handler(conv_handler)
 
     updater.start_polling()
     updater.idle()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
