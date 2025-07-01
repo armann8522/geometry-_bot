@@ -1,22 +1,22 @@
 import os
 from telegram import Update, ReplyKeyboardMarkup, ReplyKeyboardRemove
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, ConversationHandler, CallbackContext
 
 TOKEN = os.getenv("TOKEN")
 if not TOKEN:
-    TOKEN = "7506871066:AAEEKbt-HxEG_TpbwzkmKsylB8DKk1upVHk "
+    TOKEN = "توکن_واقعی_تو_رو_بعداً_اینجا_نذار، فقط برای تست فعلاً هست"
 
 CHOOSING, TYPING = range(2)
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def start(update: Update, context: CallbackContext):
     keyboard = [["دایره", "مربع"], ["مثلث", "مستطیل"]]
-    await update.message.reply_text(
+    update.message.reply_text(
         "سلام! ✅\nیک شکل انتخاب کن:",
         reply_markup=ReplyKeyboardMarkup(keyboard, one_time_keyboard=True),
     )
     return CHOOSING
 
-async def handle_shape(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def handle_shape(update: Update, context: CallbackContext):
     shape = update.message.text
     context.user_data["shape"] = shape
     prompts = {
@@ -25,10 +25,10 @@ async def handle_shape(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "مثلث": "سه ضلع (مثلاً: 3 4 5) را وارد کن:",
         "مستطیل": "طول و عرض (مثلاً: 4 5) را وارد کن:",
     }
-    await update.message.reply_text(prompts.get(shape, "شکل نامعتبر"), reply_markup=ReplyKeyboardRemove())
+    update.message.reply_text(prompts.get(shape, "شکل نامعتبر"), reply_markup=ReplyKeyboardRemove())
     return TYPING
 
-async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def calculate(update: Update, context: CallbackContext):
     shape = context.user_data.get("shape")
     text = update.message.text
     try:
@@ -42,36 +42,37 @@ async def calculate(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif shape == "مستطیل":
             a, b = map(float, text.split()); area = a*b; per = 2*(a+b)
         else:
-            await update.message.reply_text("اشتباه شکل انتخاب شد.")
+            update.message.reply_text("اشتباه شکل انتخاب شد.")
             return TYPING
 
-        await update.message.reply_text(f"🎯 نتیجه:\nمساحت = {area:.2f}\nمحیط = {per:.2f}")
+        update.message.reply_text(f"🎯 نتیجه:\nمساحت = {area:.2f}\nمحیط = {per:.2f}")
     except:
-        await update.message.reply_text("ورودی اشتباه بود، دوباره سعی کن.")
+        update.message.reply_text("ورودی اشتباه بود، دوباره سعی کن.")
 
     return ConversationHandler.END
 
-async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("لغو شد.", reply_markup=ReplyKeyboardRemove())
+def cancel(update: Update, context: CallbackContext):
+    update.message.reply_text("لغو شد.", reply_markup=ReplyKeyboardRemove())
     return ConversationHandler.END
-
-from telegram.ext import ConversationHandler
 
 def main():
-    app = ApplicationBuilder().token(TOKEN).build()
+    updater = Updater(TOKEN, use_context=True)
+    dp = updater.dispatcher
 
     conv = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            CHOOSING: [MessageHandler(filters.TEXT & ~filters.COMMAND, handle_shape)],
-            TYPING: [MessageHandler(filters.TEXT & ~filters.COMMAND, calculate)],
+            CHOOSING: [MessageHandler(Filters.text & ~Filters.command, handle_shape)],
+            TYPING: [MessageHandler(Filters.text & ~Filters.command, calculate)],
         },
         fallbacks=[CommandHandler("cancel", cancel)],
     )
 
-    app.add_handler(conv)
+    dp.add_handler(conv)
+
     print("ربات روشن شد ✅")
-    app.run_polling()
+    updater.start_polling()
+    updater.idle()
 
 if __name__ == "__main__":
     main()
