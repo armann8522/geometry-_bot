@@ -1,7 +1,9 @@
 services:
-  - type: web
-    name: geometry-_bot
-    runtime: python
-    buildCommand: pip install -r requirements.txt
+  - type: worker
+    name: geometry-bot
+    env: python
+    buildCommand: ""
     startCommand: python bot.py
-    pythonVersion: 3.10.13
+    envVars:
+      - key: TOKEN
+        value: YOUR_TOKEN_HERE
